@@ -83,37 +83,54 @@ async function preloadAllTimeframes(ticker) {
 
 // Preloaded next stock for instant loading
 let preloadedNextStock = null;
+let isPreloading = false;
 
 // Preload a random stock in background (for instant next level)
-async function preloadNextRandomStock() {
-    await loadCacheIndexIfNeeded();
+// This is fire-and-forget - never blocks gameplay
+function preloadNextRandomStock() {
+    // Don't stack multiple preloads
+    if (isPreloading) return;
+    isPreloading = true;
 
-    if (!CACHE_CONFIG.CACHED_SYMBOLS?.length) return;
+    // Run entirely in background - no awaits that block
+    (async () => {
+        try {
+            await loadCacheIndexIfNeeded();
 
-    // Pick a random symbol that's different from current
-    const symbols = CACHE_CONFIG.CACHED_SYMBOLS.filter(s => s !== state.ticker);
-    const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+            if (!CACHE_CONFIG.CACHED_SYMBOLS?.length) {
+                isPreloading = false;
+                return;
+            }
 
-    console.log(`Preloading next random stock: ${randomSymbol}`);
+            // Pick a random symbol that's different from current
+            const symbols = CACHE_CONFIG.CACHED_SYMBOLS.filter(s => s !== state.ticker);
+            const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
 
-    // Load the symbol file into cache
-    const loaded = await loadSymbolFileIfNeeded(randomSymbol);
-    if (loaded) {
-        // Try to get weekly data (default timeframe)
-        const config = TIMEFRAME_CONFIG['1wk'];
-        const data = await getFromFileCache(randomSymbol, config.period, '1wk');
+            console.log(`[Background] Preloading next stock: ${randomSymbol}`);
 
-        if (data && data.count > 50) {
-            preloadedNextStock = {
-                symbol: randomSymbol,
-                data: data
-            };
-            console.log(`Next stock ready: ${randomSymbol} (${data.count} candles)`);
+            // Load the symbol file into cache
+            const loaded = await loadSymbolFileIfNeeded(randomSymbol);
+            if (loaded) {
+                // Try to get weekly data (default timeframe)
+                const config = TIMEFRAME_CONFIG['1wk'];
+                const data = await getFromFileCache(randomSymbol, config.period, '1wk');
 
-            // Also preload other timeframes
-            preloadAllTimeframes(randomSymbol);
+                if (data && data.count > 50) {
+                    preloadedNextStock = {
+                        symbol: randomSymbol,
+                        data: data
+                    };
+                    console.log(`[Background] Next stock ready: ${randomSymbol} (${data.count} candles)`);
+
+                    // Also preload other timeframes (fire and forget)
+                    preloadAllTimeframes(randomSymbol);
+                }
+            }
+        } catch (e) {
+            console.log('[Background] Preload failed:', e.message);
         }
-    }
+        isPreloading = false;
+    })();
 }
 
 // DOM Elements
@@ -160,9 +177,7 @@ function initSplash() {
 
 // Load random symbol from file
 async function loadRandomSymbol() {
-    showLoading(true, 'Loading historical data of a random stock, please wait while we load the chart.');
-
-    // Check if we have a preloaded stock ready (instant!)
+    // Check if we have a preloaded stock ready (instant - no loading screen!)
     if (preloadedNextStock) {
         const { symbol, data } = preloadedNextStock;
         preloadedNextStock = null; // Clear it
@@ -188,7 +203,6 @@ async function loadRandomSymbol() {
 
         elements.chartContainer.focus();
         console.log(`Successfully loaded ${symbol} with ${data.count} candles (preloaded)`);
-        showLoading(false);
 
         // Preload all other timeframes and next random stock in background
         preloadAllTimeframes(symbol);
@@ -197,7 +211,9 @@ async function loadRandomSymbol() {
         return;
     }
 
-    // No preloaded stock - load normally
+    // No preloaded stock - show loading and fetch normally
+    showLoading(true, 'Loading historical data of a random stock, please wait while we load the chart.');
+
     // Load cache index first
     await loadCacheIndexIfNeeded();
 
