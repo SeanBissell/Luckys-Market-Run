@@ -1603,6 +1603,7 @@ function closePosition(result) {
     showTradeResult(trade);
     updateUI();
     render();
+    updateMobileUI();
 
     // Preload next random stock in background for instant next level
     preloadNextRandomStock();
@@ -2913,12 +2914,10 @@ function updateMobileUI() {
                 actionLabel.textContent = 'Confirm';
                 break;
         }
-    } else if (state.currentPosition) {
+    } else {
+        // Action button is always "Next" when not in trade mode
         actionIcon.textContent = '▶️';
         actionLabel.textContent = 'Next';
-    } else {
-        actionIcon.textContent = '📊';
-        actionLabel.textContent = 'Trade';
     }
 
     if (tradeIcon && tradeLabel) {
