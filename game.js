@@ -241,23 +241,24 @@ async function loadRandomSymbol() {
         symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
     }
 
-    // Shuffle and try symbols
+    // Shuffle and try symbols - but don't update UI until we find a valid one
     const shuffled = [...symbols].sort(() => Math.random() - 0.5);
 
     for (let i = 0; i < Math.min(10, shuffled.length); i++) {
         const symbol = shuffled[i];
         console.log(`Trying to load symbol: ${symbol}`);
 
-        state.ticker = symbol;
-        elements.tickerInput.value = symbol;
-        state.timeframeStack = [];
-        state.currentPosition = null;
-        exitTradeMode();
-
         const config = TIMEFRAME_CONFIG[state.timeframe];
         const data = await fetchStockData(symbol, config.period, state.timeframe, 'Loading historical data of a random stock, please wait while we load the chart.');
 
         if (data && data.count > 50) { // Need at least 50 candles
+            // Only update state/UI AFTER we confirm data is valid
+            state.ticker = symbol;
+            elements.tickerInput.value = symbol;
+            state.timeframeStack = [];
+            state.currentPosition = null;
+            exitTradeMode();
+
             state.data = data;
             state.ema10 = calculateEMA(data.close, 10);
             state.ema20 = calculateEMA(data.close, 20);
