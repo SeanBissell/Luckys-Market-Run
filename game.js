@@ -2327,15 +2327,36 @@ function drawChart() {
         ctx.fillStyle = 'white';
         ctx.fillText(`SL ${pos.stopLoss.toFixed(2)}`, width - padding.right + 8, slY + 4);
 
-        // Draw drag handle indicator on the line
-        ctx.fillStyle = '#ef5350';
+        // Draw prominent drag handle with arrows spreading up and down
+        const handleX = padding.left + 50;
+
+        // Background pill for drag handle
+        ctx.fillStyle = 'rgba(239, 83, 80, 0.9)';
         ctx.beginPath();
-        ctx.arc(padding.left + 30, slY, 6, 0, Math.PI * 2);
+        ctx.roundRect(handleX - 25, slY - 18, 50, 36, 8);
         ctx.fill();
+
+        // Up arrow
         ctx.fillStyle = 'white';
-        ctx.font = '10px -apple-system, sans-serif';
+        ctx.beginPath();
+        ctx.moveTo(handleX, slY - 14);
+        ctx.lineTo(handleX - 8, slY - 6);
+        ctx.lineTo(handleX + 8, slY - 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Down arrow
+        ctx.beginPath();
+        ctx.moveTo(handleX, slY + 14);
+        ctx.lineTo(handleX - 8, slY + 6);
+        ctx.lineTo(handleX + 8, slY + 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Drag text
+        ctx.font = 'bold 9px -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('↕', padding.left + 30, slY + 3);
+        ctx.fillText('DRAG', handleX, slY + 3);
         ctx.textAlign = 'left';
     }
 
