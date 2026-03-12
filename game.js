@@ -17,7 +17,7 @@ const state = {
     ema20: [],
     visibleStartIndex: 0,
     visibleCandles: isMobileDevice ? 40 : 80,
-    verticalScale: isMobileDevice ? 0.1 : 1.0, // More compressed on mobile
+    verticalScale: isMobileDevice ? 0.005 : 1.0, // Maximum compression on mobile
     currentCandleIndex: 0,
     isPlaying: false,
     playbackSpeed: 3,
@@ -58,11 +58,11 @@ const ACHIEVEMENTS = {
 
 // Timeframe configurations
 const TIMEFRAME_CONFIG = {
-    '1wk': { period: '5y', label: 'Weekly', drillTo: '1d' },
-    '1d': { period: '2y', label: 'Daily', drillTo: '1h', drillFrom: '1wk' },
-    '1h': { period: '3mo', label: 'Hourly', drillTo: '15m', drillFrom: '1d' },
-    '15m': { period: '1mo', label: '15 Min', drillTo: '5m', drillFrom: '1h' },
-    '5m': { period: '5d', label: '5 Min', drillFrom: '15m' },
+    '1wk': { period: 'max', label: 'Weekly', drillTo: '1d' },
+    '1d': { period: '10y', label: 'Daily', drillTo: '1h', drillFrom: '1wk' },
+    '1h': { period: '2y', label: 'Hourly', drillTo: '15m', drillFrom: '1d' },
+    '15m': { period: '60d', label: '15 Min', drillTo: '5m', drillFrom: '1h' },
+    '5m': { period: '60d', label: '5 Min', drillFrom: '15m' },
 };
 
 // Preload all timeframes for a symbol in the background
@@ -77,8 +77,61 @@ async function preloadAllTimeframes(ticker) {
             if (data) {
                 console.log(`Preloaded ${ticker} ${config.label}: ${data.count} candles`);
             }
+            // Update button availability after each timeframe check
+            updateTimeframeButtons();
         }).catch(() => {}); // Ignore errors during preload
     }
+}
+
+// Update timeframe buttons based on what data actually exists in cache
+function updateTimeframeButtons() {
+    if (!elements.timeframeBtns || !state.ticker) return;
+
+    const symbolData = CACHE_CONFIG.SYMBOL_DATA[state.ticker];
+    if (!symbolData) return;
+
+    // Get current timestamp being viewed (if any)
+    const currentTimestamp = state.data?.timestamps?.[state.currentCandleIndex];
+    const currentTime = currentTimestamp ? new Date(currentTimestamp).getTime() : null;
+
+    elements.timeframeBtns.forEach(btn => {
+        const tf = btn.dataset.tf;
+        const config = TIMEFRAME_CONFIG[tf];
+        if (!config) return;
+
+        const key = `${state.ticker}_${config.period}_${tf}`;
+        const tfData = symbolData[key];
+        const hasData = tfData && tfData.count > 0;
+
+        // Check if current timestamp falls within this timeframe's data range
+        let inRange = true;
+        if (hasData && currentTime && tfData.timestamps?.length > 0) {
+            const firstTimestamp = new Date(tfData.timestamps[0]).getTime();
+            const lastTimestamp = new Date(tfData.timestamps[tfData.timestamps.length - 1]).getTime();
+
+            // Allow some buffer based on timeframe
+            const bufferMs = {
+                '1wk': 7 * 24 * 60 * 60 * 1000,   // 1 week buffer
+                '1d': 2 * 24 * 60 * 60 * 1000,    // 2 day buffer
+                '1h': 2 * 60 * 60 * 1000,         // 2 hour buffer
+                '15m': 30 * 60 * 1000,            // 30 min buffer
+                '5m': 10 * 60 * 1000,             // 10 min buffer
+            };
+            const buffer = bufferMs[tf] || 0;
+
+            inRange = currentTime >= (firstTimestamp - buffer) && currentTime <= (lastTimestamp + buffer);
+        }
+
+        const shouldEnable = (hasData && inRange) || tf === state.timeframe;
+
+        if (shouldEnable) {
+            btn.disabled = false;
+            btn.classList.remove('disabled');
+        } else {
+            btn.disabled = true;
+            btn.classList.add('disabled');
+        }
+    });
 }
 
 // Preloaded next stock for instant loading
@@ -201,6 +254,9 @@ async function loadRandomSymbol() {
         elements.chartContainer.focus();
         console.log(`Successfully loaded ${symbol} with ${data.count} candles (preloaded)`);
 
+        // Update timeframe button availability
+        updateTimeframeButtons();
+
         // Start preloading the next random stock in background
         preloadNextRandomStock();
 
@@ -211,7 +267,7 @@ async function loadRandomSymbol() {
     }
 
     // No preloaded stock - show loading and fetch normally
-    showLoading(true, 'Loading historical data of a random stock, please wait while we load the chart.');
+    showLoading(true, 'Selecting from over 6,000 stocks... Finding your random chart!');
 
     // Load cache index first
     await loadCacheIndexIfNeeded();
@@ -249,7 +305,7 @@ async function loadRandomSymbol() {
         console.log(`Trying to load symbol: ${symbol}`);
 
         const config = TIMEFRAME_CONFIG[state.timeframe];
-        const data = await fetchStockData(symbol, config.period, state.timeframe, 'Loading historical data of a random stock, please wait while we load the chart.');
+        const data = await fetchStockData(symbol, config.period, state.timeframe, 'Selecting from over 6,000 stocks... Finding your random chart!');
 
         if (data && data.count > 50) { // Need at least 50 candles
             // Only update state/UI AFTER we confirm data is valid
@@ -273,6 +329,9 @@ async function loadRandomSymbol() {
             elements.chartContainer.focus();
             console.log(`Successfully loaded ${symbol} with ${data.count} candles`);
             showLoading(false);
+
+            // Update timeframe button availability
+            updateTimeframeButtons();
 
             // Start preloading the next random stock in background
             preloadNextRandomStock();
@@ -520,10 +579,6 @@ function handleKeyDown(e) {
         case 'ArrowDown':
             e.preventDefault();
             drillDown();
-            break;
-        case 'r':
-        case 'R':
-            randomJump();
             break;
         case 'c':
         case 'C':
@@ -1011,6 +1066,11 @@ async function getFromFileCache(ticker, period, interval) {
         console.log(`File cache hit for ${ticker} ${interval}`);
         return data;
     }
+
+    // Debug: show what keys are available
+    console.log(`File cache miss for key: ${key}`);
+    console.log(`Available keys:`, Object.keys(symbolData));
+
     return null;
 }
 
@@ -1271,8 +1331,8 @@ async function loadData(targetTimestamp = null) {
             };
 
             if (closestDiff > (maxDiffMs[state.timeframe] || Infinity)) {
-                // Data not available for this time period - show message and revert
-                showErrorModal(`No ${config.label} data available for this time period. Try a more recent date.`, 'Data Unavailable');
+                // Data not available for this time period - silently revert
+                console.log(`No ${config.label} data available for this time period, reverting...`);
                 // Revert to previous timeframe if we have stack
                 if (state.timeframeStack.length > 0) {
                     const previous = state.timeframeStack.pop();
@@ -1281,6 +1341,7 @@ async function loadData(targetTimestamp = null) {
                         btn.classList.toggle('active', btn.dataset.tf === state.timeframe);
                     });
                     await loadData(previous.timestamp);
+                    updateTimeframeButtons();
                     return;
                 }
             }
@@ -1297,19 +1358,20 @@ async function loadData(targetTimestamp = null) {
         render();
         return true; // Success
     } else if (targetTimestamp && state.timeframeStack.length > 0) {
-        // No data at all - revert
-        showErrorModal(`No ${config.label} data available for ${state.ticker}. Reverting to previous timeframe.`, 'Data Unavailable');
+        // No data at all - silently revert
+        console.log(`No ${config.label} data available for ${state.ticker}, reverting...`);
         const previous = state.timeframeStack.pop();
         state.timeframe = previous.timeframe;
         elements.timeframeBtns.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tf === state.timeframe);
         });
+        updateTimeframeButtons();
         return await loadData(previous.timestamp);
     }
     return false; // Failed to load
 }
 
-function changeTimeframe(tf) {
+async function changeTimeframe(tf) {
     if (tf === state.timeframe || !state.ticker) return;
 
     // Save current timestamp before changing
@@ -1320,17 +1382,8 @@ function changeTimeframe(tf) {
         btn.classList.toggle('active', btn.dataset.tf === tf);
     });
 
-    loadData(currentTimestamp);
-}
-
-function randomJump() {
-    if (!state.data || state.currentPosition) return;
-
-    const maxStart = Math.max(0, state.data.count - 100);
-    const minStart = Math.floor(state.data.count * 0.1);
-    state.currentCandleIndex = minStart + Math.floor(Math.random() * (maxStart - minStart));
-    adjustView();
-    render();
+    await loadData(currentTimestamp);
+    updateTimeframeButtons();
 }
 
 function adjustView() {
@@ -1362,6 +1415,7 @@ async function drillDown() {
     });
 
     await loadData(currentTimestamp);
+    updateTimeframeButtons();
 }
 
 async function drillUp() {
@@ -1375,6 +1429,7 @@ async function drillUp() {
     });
 
     await loadData(previous.timestamp);
+    updateTimeframeButtons();
 }
 
 // Trading Functions
@@ -2094,10 +2149,12 @@ function drawChart() {
 
     const priceRange = visibleHigh - visibleLow;
     // Apply vertical scale - lower scale = more compressed (more price range visible)
+    // On mobile, add significant extra range to keep chart compressed
+    const mobileExpansion = isMobileDevice ? priceRange * 0.5 : 0; // Add 50% extra range on mobile
     const pricePadding = priceRange * state.verticalScale * 0.15;
 
-    const minPrice = visibleLow - pricePadding;
-    const maxPrice = visibleHigh + pricePadding;
+    const minPrice = visibleLow - pricePadding - mobileExpansion;
+    const maxPrice = visibleHigh + pricePadding + mobileExpansion;
 
     const priceToY = (price) => {
         return padding.top + chartHeight * (1 - (price - minPrice) / (maxPrice - minPrice));
@@ -2374,7 +2431,9 @@ function updateLucky() {
 
     // Keep Lucky within visible chart area (more aggressive clamping)
     const spriteHeight = isMobileDevice ? 48 : 64;
-    const minY = padding.top + spriteHeight + 20; // Don't go above chart
+    // On mobile, keep Lucky much lower to avoid overlapping with header/balance
+    const mobileExtraOffset = isMobileDevice ? 60 : 0;
+    const minY = padding.top + spriteHeight + 20 + mobileExtraOffset; // Don't go above chart
     const maxY = padding.top + chartHeight - 20; // Stay within chart area
     y = Math.max(minY, Math.min(maxY, y));
 
@@ -2698,7 +2757,6 @@ const mobileElements = {
     controls: null,
     actionBtn: null,
     tradeBtn: null,
-    randomBtn: null,
     menuBtn: null
 };
 
@@ -2706,7 +2764,6 @@ function initMobile() {
     mobileElements.controls = document.getElementById('mobile-controls');
     mobileElements.actionBtn = document.getElementById('mobile-action-btn');
     mobileElements.tradeBtn = document.getElementById('mobile-trade-btn');
-    mobileElements.randomBtn = document.getElementById('mobile-random-btn');
     mobileElements.menuBtn = document.getElementById('mobile-menu-btn');
 
     if (!mobileElements.controls) return;
@@ -2714,7 +2771,6 @@ function initMobile() {
     // Mobile button handlers
     mobileElements.actionBtn?.addEventListener('click', handleMobileAction);
     mobileElements.tradeBtn?.addEventListener('click', handleMobileTrade);
-    mobileElements.randomBtn?.addEventListener('click', handleMobileRandom);
     mobileElements.menuBtn?.addEventListener('click', handleMobileMenu);
 
     // Hold-to-fast-forward on action button
@@ -2785,13 +2841,6 @@ function handleMobileTrade(e) {
     }
 
     updateMobileUI();
-}
-
-function handleMobileRandom(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    sounds.click();
-    randomJump();
 }
 
 function handleMobileMenu(e) {
@@ -2995,7 +3044,7 @@ function handleTouchMove(e) {
         const deltaY = y - priceAxisDragStartY;
         // Drag down = compress (lower scale), drag up = expand (higher scale)
         const scaleDelta = deltaY * 0.005;
-        state.verticalScale = Math.max(0.1, Math.min(2.0, priceAxisStartScale + scaleDelta));
+        state.verticalScale = Math.max(0.005, Math.min(2.0, priceAxisStartScale + scaleDelta));
         render();
         return;
     }

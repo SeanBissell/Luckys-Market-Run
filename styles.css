@@ -466,6 +466,13 @@ body {
     color: white;
 }
 
+.tf-btn.disabled,
+.tf-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 #game-stats {
     display: flex;
     gap: 16px;

@@ -14,8 +14,6 @@ class SoundSystem {
         // Music rotation system
         this.musicTracks = ['MainTheme.mp3', 'MainTheme2.mp3', 'MainTheme3.mp3'];
         this.currentTrackIndex = 0;
-        this.playCount = 0;
-        this.playsPerTrack = 4;
     }
 
     async init() {
@@ -38,20 +36,14 @@ class SoundSystem {
         this.bgMusic.loop = false; // Don't loop - we'll handle track changes
         this.bgMusic.volume = this.musicVolume;
 
-        // When track ends, increment play count and possibly switch tracks
+        // When track ends, switch to next track
         this.bgMusic.addEventListener('ended', () => {
-            this.playCount++;
-            console.log(`Track ${this.currentTrackIndex + 1} finished, play count: ${this.playCount}`);
+            // Switch to next track
+            this.currentTrackIndex = (this.currentTrackIndex + 1) % this.musicTracks.length;
+            console.log(`Switching to track ${this.currentTrackIndex + 1}: ${this.musicTracks[this.currentTrackIndex]}`);
 
-            if (this.playCount >= this.playsPerTrack) {
-                // Switch to next track
-                this.playCount = 0;
-                this.currentTrackIndex = (this.currentTrackIndex + 1) % this.musicTracks.length;
-                console.log(`Switching to track ${this.currentTrackIndex + 1}: ${this.musicTracks[this.currentTrackIndex]}`);
-
-                // Load and play new track
-                this.bgMusic.src = this.musicTracks[this.currentTrackIndex];
-            }
+            // Load and play new track
+            this.bgMusic.src = this.musicTracks[this.currentTrackIndex];
 
             // Continue playing if music was on
             if (this.musicPlaying) {
