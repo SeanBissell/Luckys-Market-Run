@@ -65,6 +65,22 @@ const TIMEFRAME_CONFIG = {
     '5m': { period: '5d', label: '5 Min', drillFrom: '15m' },
 };
 
+// Preload all timeframes for a symbol in the background
+async function preloadAllTimeframes(ticker) {
+    console.log(`Preloading all timeframes for ${ticker}...`);
+    const timeframes = Object.entries(TIMEFRAME_CONFIG);
+
+    // Load all timeframes in parallel (but don't await - let it happen in background)
+    for (const [interval, config] of timeframes) {
+        // This will cache the data in CACHE_CONFIG.SYMBOL_DATA via getFromFileCache
+        getFromFileCache(ticker, config.period, interval).then(data => {
+            if (data) {
+                console.log(`Preloaded ${ticker} ${config.label}: ${data.count} candles`);
+            }
+        }).catch(() => {}); // Ignore errors during preload
+    }
+}
+
 // DOM Elements
 const elements = {};
 
@@ -167,6 +183,10 @@ async function loadRandomSymbol() {
             elements.chartContainer.focus();
             console.log(`Successfully loaded ${symbol} with ${data.count} candles`);
             showLoading(false);
+
+            // Preload all other timeframes in the background for instant switching
+            preloadAllTimeframes(symbol);
+
             return;
         }
         console.log(`Failed to load ${symbol} (count: ${data?.count || 0}), trying next...`);
@@ -1118,6 +1138,9 @@ async function loadTicker() {
     exitTradeMode();
 
     await loadData();
+
+    // Preload all other timeframes in the background for instant switching
+    preloadAllTimeframes(ticker);
 
     // Focus on chart container so keyboard controls work immediately
     elements.chartContainer.focus();
