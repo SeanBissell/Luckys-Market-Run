@@ -204,6 +204,9 @@ async function loadRandomSymbol() {
         // Start preloading the next random stock in background
         preloadNextRandomStock();
 
+        // After a short delay, preload other timeframes for this stock
+        setTimeout(() => preloadAllTimeframes(symbol), 1000);
+
         return;
     }
 
@@ -272,6 +275,9 @@ async function loadRandomSymbol() {
 
             // Start preloading the next random stock in background
             preloadNextRandomStock();
+
+            // After a short delay, preload other timeframes for this stock
+            setTimeout(() => preloadAllTimeframes(symbol), 1000);
 
             return;
         }
