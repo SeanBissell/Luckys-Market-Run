@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Lucky's Market Run</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="splash-bg">
+            <div class="grid-overlay"></div>
+            <div class="scan-line"></div>
+        </div>
+        <div class="splash-content">
+            <div class="splash-logo">
+                <div class="lucky-splash">
+                    <img src="lucky.svg" alt="Lucky" class="lucky-bounce">
+                </div>
+                <h1 class="game-title">
+                    <span class="title-line">LUCKY'S</span>
+                    <span class="title-line accent">MARKET RUN</span>
+                </h1>
+            </div>
+            <div class="splash-tagline">Ride the charts. Trust your instincts.</div>
+            <div class="splash-features">
+                <div class="feature">
+                    <span class="feature-icon">📈</span>
+                    <span>Real Historical Data</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">🎯</span>
+                    <span>Risk-Based Trading</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">🐕</span>
+                    <span>Lucky by Your Side</span>
+                </div>
+            </div>
+            <button id="start-btn" class="start-button">
+                <span class="btn-text">START TRADING</span>
+                <span class="btn-glow"></span>
+            </button>
+            <div class="splash-hint">Press SPACE or click to begin</div>
+        </div>
+        <div class="splash-footer">
+            <span>In memory of Lucky (2008-2026)</span>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <!-- Header Bar (TradingView style) -->
+        <header id="header">
+            <div class="header-left">
+                <span class="logo"><img src="lucky.svg" class="logo-icon" alt="Lucky"> Lucky's Market Run</span>
+                <div class="ticker-input-wrapper">
+                    <input type="text" id="ticker-input" placeholder="AAPL" maxlength="10">
+                    <button id="load-ticker-btn">Load</button>
+                </div>
+                <div id="ticker-info">
+                    <span id="current-ticker">--</span>
+                    <span id="current-price">--</span>
+                    <span id="price-change">--</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div id="timeframe-buttons">
+                    <button class="tf-btn active" data-tf="1wk">W</button>
+                    <button class="tf-btn" data-tf="1d">D</button>
+                    <button class="tf-btn" data-tf="1h">1H</button>
+                    <button class="tf-btn" data-tf="15m">15m</button>
+                    <button class="tf-btn" data-tf="5m">5m</button>
+                </div>
+                <div id="game-stats">
+                    <span class="stat">🏆 Level: <span id="level">1</span></span>
+                    <span class="stat">💰 <span id="balance">100,000</span></span>
+                    <span class="stat">📊 P/L: <span id="total-pnl">$0</span></span>
+                    <span class="stat">🎯 Win: <span id="win-rate">0%</span></span>
+                    <button id="music-toggle" class="icon-btn" title="Toggle Music">🎵</button>
+                    <button id="sound-toggle" class="icon-btn" title="Toggle Sound Effects">🔊</button>
+                    <button id="export-btn" onclick="exportTrades()">📤 Export</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Streak Display -->
+        <div id="streak-display" class="hidden">
+            <span class="streak-flame">🔥</span>
+            <span class="streak-count">0</span>
+            <span class="streak-label">STREAK</span>
+        </div>
+
+        <!-- XP Bar -->
+        <div id="xp-bar-container">
+            <div id="xp-bar">
+                <div id="xp-fill"></div>
+            </div>
+            <span id="xp-text">Level 1 - 0 XP</span>
+        </div>
+
+        <!-- Main Chart Area -->
+        <main id="main-area">
+            <!-- Chart Canvas -->
+            <div id="chart-container">
+                <canvas id="chart-canvas"></canvas>
+
+                <!-- Lucky's Rainbow Trail (Nyan cat style) -->
+                <div id="lucky-trail"></div>
+
+                <!-- Floating elements ahead of Lucky -->
+                <div id="lucky-sparkles"></div>
+
+                <div id="lucky-sprite">
+                    <div class="lucky-image"></div>
+                </div>
+                <div id="chart-overlay">
+                    <div id="crosshair-x"></div>
+                    <div id="crosshair-y"></div>
+                    <div id="price-tooltip"></div>
+                </div>
+
+                <!-- Game HUD Overlay -->
+                <div id="game-hud"></div>
+
+                <!-- Trade Entry Panel -->
+                <div id="trade-panel" class="hidden"></div>
+
+                <!-- Position Display -->
+                <div id="position-display"></div>
+
+                <div id="loading-overlay" class="hidden">
+                    <div class="loading-spinner"></div>
+                    <p id="loading-text">Loading historical data of a random stock, please wait while we load the chart.</p>
+                </div>
+
+                <!-- Achievement Popup -->
+                <div id="achievement-popup" class="hidden">
+                    <div class="achievement-icon">🏆</div>
+                    <div class="achievement-text">
+                        <div class="achievement-title">Achievement Unlocked!</div>
+                        <div class="achievement-desc">First Blood</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Info Bar -->
+        <footer id="footer">
+            <div id="candle-info">
+                <span>O: <span id="info-open">--</span></span>
+                <span>H: <span id="info-high">--</span></span>
+                <span>L: <span id="info-low">--</span></span>
+                <span>C: <span id="info-close">--</span></span>
+                <span>V: <span id="info-volume">--</span></span>
+            </div>
+            <div id="controls-hint">
+                <span>SPACE: Trade/Next</span>
+                <span>→: Advance</span>
+                <span>↑↓: Timeframe</span>
+                <span>R: Random</span>
+                <span>C: Close Position</span>
+            </div>
+            <div id="time-info">
+                <span id="current-date">--</span>
+                <span id="candle-index">--</span>
+            </div>
+        </footer>
+
+        <!-- Mobile Controls -->
+        <div id="mobile-controls">
+            <button class="mobile-btn" id="mobile-random-btn">
+                <span class="btn-icon">🎲</span>
+                <span class="btn-label">Random</span>
+            </button>
+            <button class="mobile-btn primary" id="mobile-action-btn">
+                <span class="btn-icon">▶️</span>
+                <span class="btn-label">Next</span>
+            </button>
+            <button class="mobile-btn" id="mobile-trade-btn">
+                <span class="btn-icon">📈</span>
+                <span class="btn-label">Trade</span>
+            </button>
+            <button class="mobile-btn" id="mobile-menu-btn">
+                <span class="btn-icon">⚙️</span>
+                <span class="btn-label">More</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Trade Result Modal -->
+    <div id="trade-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="modal-title">Trade Result</h2>
+            <div id="modal-body"></div>
+            <button id="modal-close-btn">Continue</button>
+        </div>
+    </div>
+
+    <!-- Level Up Modal -->
+    <div id="level-modal" class="modal hidden">
+        <div class="modal-content level-up-modal">
+            <div class="level-up-stars">✦ ✦ ✦</div>
+            <h2 id="level-modal-title">LEVEL UP!</h2>
+            <div id="level-modal-body"></div>
+            <button id="level-modal-btn">CONTINUE</button>
+        </div>
+    </div>
+
+    <!-- Error/Info Modal (non-blocking) -->
+    <div id="error-modal" class="modal hidden">
+        <div class="modal-content error-modal">
+            <div class="error-icon">⚠️</div>
+            <h2 id="error-modal-title">Notice</h2>
+            <div id="error-modal-body"></div>
+            <div class="error-hint">Press SPACE or ENTER to continue</div>
+        </div>
+    </div>
+
+    <script src="game.js" type="module"></script>
+</body>
+</html>

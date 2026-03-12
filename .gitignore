@@ -1,0 +1,15 @@
+# Backups
+backup_*/
+
+# Python
+*.pyc
+__pycache__/
+*.py
+
+# Old cache file (we use stock_data/ now)
+stock_cache.json
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
