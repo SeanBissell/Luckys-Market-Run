@@ -121,9 +121,6 @@ function preloadNextRandomStock() {
                         data: data
                     };
                     console.log(`[Background] Next stock ready: ${randomSymbol} (${data.count} candles)`);
-
-                    // Also preload other timeframes (fire and forget)
-                    preloadAllTimeframes(randomSymbol);
                 }
             }
         } catch (e) {
@@ -204,8 +201,7 @@ async function loadRandomSymbol() {
         elements.chartContainer.focus();
         console.log(`Successfully loaded ${symbol} with ${data.count} candles (preloaded)`);
 
-        // Preload all other timeframes and next random stock in background
-        preloadAllTimeframes(symbol);
+        // Start preloading the next random stock in background
         preloadNextRandomStock();
 
         return;
@@ -274,10 +270,7 @@ async function loadRandomSymbol() {
             console.log(`Successfully loaded ${symbol} with ${data.count} candles`);
             showLoading(false);
 
-            // Preload all other timeframes in the background for instant switching
-            preloadAllTimeframes(symbol);
-
-            // Start preloading the next random stock
+            // Start preloading the next random stock in background
             preloadNextRandomStock();
 
             return;
@@ -1231,9 +1224,6 @@ async function loadTicker() {
     exitTradeMode();
 
     await loadData();
-
-    // Preload all other timeframes in the background for instant switching
-    preloadAllTimeframes(ticker);
 
     // Focus on chart container so keyboard controls work immediately
     elements.chartContainer.focus();
