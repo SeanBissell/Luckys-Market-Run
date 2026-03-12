@@ -81,6 +81,41 @@ async function preloadAllTimeframes(ticker) {
     }
 }
 
+// Preloaded next stock for instant loading
+let preloadedNextStock = null;
+
+// Preload a random stock in background (for instant next level)
+async function preloadNextRandomStock() {
+    await loadCacheIndexIfNeeded();
+
+    if (!CACHE_CONFIG.CACHED_SYMBOLS?.length) return;
+
+    // Pick a random symbol that's different from current
+    const symbols = CACHE_CONFIG.CACHED_SYMBOLS.filter(s => s !== state.ticker);
+    const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+
+    console.log(`Preloading next random stock: ${randomSymbol}`);
+
+    // Load the symbol file into cache
+    const loaded = await loadSymbolFileIfNeeded(randomSymbol);
+    if (loaded) {
+        // Try to get weekly data (default timeframe)
+        const config = TIMEFRAME_CONFIG['1wk'];
+        const data = await getFromFileCache(randomSymbol, config.period, '1wk');
+
+        if (data && data.count > 50) {
+            preloadedNextStock = {
+                symbol: randomSymbol,
+                data: data
+            };
+            console.log(`Next stock ready: ${randomSymbol} (${data.count} candles)`);
+
+            // Also preload other timeframes
+            preloadAllTimeframes(randomSymbol);
+        }
+    }
+}
+
 // DOM Elements
 const elements = {};
 
@@ -89,6 +124,9 @@ function initSplash() {
     const splashScreen = document.getElementById('splash-screen');
     const startBtn = document.getElementById('start-btn');
     const gameContainer = document.getElementById('game-container');
+
+    // Start preloading a random stock immediately while user is on splash screen
+    preloadNextRandomStock();
 
     const startGame = async () => {
         sounds.init();
@@ -124,6 +162,42 @@ function initSplash() {
 async function loadRandomSymbol() {
     showLoading(true, 'Loading historical data of a random stock, please wait while we load the chart.');
 
+    // Check if we have a preloaded stock ready (instant!)
+    if (preloadedNextStock) {
+        const { symbol, data } = preloadedNextStock;
+        preloadedNextStock = null; // Clear it
+
+        console.log(`Using preloaded stock: ${symbol}`);
+
+        state.ticker = symbol;
+        elements.tickerInput.value = symbol;
+        state.timeframeStack = [];
+        state.currentPosition = null;
+        exitTradeMode();
+
+        state.data = data;
+        state.ema10 = calculateEMA(data.close, 10);
+        state.ema20 = calculateEMA(data.close, 20);
+
+        const startPoint = Math.floor(data.count * 0.3) + Math.floor(Math.random() * data.count * 0.3);
+        state.currentCandleIndex = Math.min(startPoint, data.count - 50);
+        state.visibleStartIndex = Math.max(0, state.currentCandleIndex - state.visibleCandles + 10);
+        updateTickerInfo();
+        updateUI();
+        render();
+
+        elements.chartContainer.focus();
+        console.log(`Successfully loaded ${symbol} with ${data.count} candles (preloaded)`);
+        showLoading(false);
+
+        // Preload all other timeframes and next random stock in background
+        preloadAllTimeframes(symbol);
+        preloadNextRandomStock();
+
+        return;
+    }
+
+    // No preloaded stock - load normally
     // Load cache index first
     await loadCacheIndexIfNeeded();
 
@@ -186,6 +260,9 @@ async function loadRandomSymbol() {
 
             // Preload all other timeframes in the background for instant switching
             preloadAllTimeframes(symbol);
+
+            // Start preloading the next random stock
+            preloadNextRandomStock();
 
             return;
         }
@@ -1458,6 +1535,9 @@ function closePosition(result) {
     showTradeResult(trade);
     updateUI();
     render();
+
+    // Preload next random stock in background for instant next level
+    preloadNextRandomStock();
 }
 
 function manualClosePosition() {
